@@ -15,6 +15,7 @@ import pl.allegro.tech.hermes.consumers.supervisor.workload.SupervisorController
 import pl.allegro.tech.hermes.consumers.supervisor.workload.WorkTracker;
 import pl.allegro.tech.hermes.domain.notifications.InternalNotificationsBus;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 
@@ -80,7 +81,7 @@ public class SelectiveSupervisorController implements SupervisorController {
 
     @Override
     public void onSubscriptionChanged(Subscription subscription) {
-        if (workTracker.isAssignedTo(subscription.getQualifiedName(), getId())) {
+        if (workTracker.isAssignedTo(subscription.getQualifiedName(), watchedConsumerId().get())) {
             logger.info("Updating subscription {}", subscription.getName());
             supervisor.updateSubscription(subscription);
         }
@@ -89,7 +90,7 @@ public class SelectiveSupervisorController implements SupervisorController {
     @Override
     public void onTopicChanged(Topic topic) {
         for (Subscription subscription : subscriptionsCache.subscriptionsOfTopic(topic.getName())) {
-            if(workTracker.isAssignedTo(subscription.getQualifiedName(), getId())) {
+            if(workTracker.isAssignedTo(subscription.getQualifiedName(), watchedConsumerId().get())) {
                 supervisor.updateTopic(subscription, topic);
             }
         }
@@ -130,7 +131,7 @@ public class SelectiveSupervisorController implements SupervisorController {
 
     @Override
     public Set<SubscriptionName> assignedSubscriptions() {
-        return registry.createSnapshot().getSubscriptionsForConsumerNode(getId());
+        return registry.createSnapshot().getSubscriptionsForConsumerNode(watchedConsumerId().get());
     }
 
     @Override
@@ -138,8 +139,9 @@ public class SelectiveSupervisorController implements SupervisorController {
         supervisor.shutdown();
     }
 
-    public String getId() {
-        return consumersRegistry.getId();
+    @Override
+    public Optional<String> watchedConsumerId() {
+        return Optional.of(consumersRegistry.getId());
     }
 
     public boolean isLeader() {
@@ -149,14 +151,14 @@ public class SelectiveSupervisorController implements SupervisorController {
     @Override
     public void onRetransmissionStarts(SubscriptionName subscription) throws Exception {
         logger.info("Triggering retransmission for subscription {}", subscription);
-        if (workTracker.isAssignedTo(subscription, getId())) {
+        if (workTracker.isAssignedTo(subscription, watchedConsumerId().get())) {
             supervisor.retransmit(subscription);
         }
     }
 
     @Override
     public void restartConsumer(SubscriptionName subscription) throws Exception {
-        if (workTracker.isAssignedTo(subscription, getId())) {
+        if (workTracker.isAssignedTo(subscription, watchedConsumerId().get())) {
             supervisor.restartConsumer(subscription);
         }
     }

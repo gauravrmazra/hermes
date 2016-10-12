@@ -3,102 +3,63 @@ package pl.allegro.tech.hermes.consumers.supervisor.workload;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
+import pl.allegro.tech.hermes.api.Subscription;
 import pl.allegro.tech.hermes.api.SubscriptionName;
 import pl.allegro.tech.hermes.common.exception.InternalProcessingException;
 import pl.allegro.tech.hermes.consumers.subscription.cache.SubscriptionsCache;
-import pl.allegro.tech.hermes.infrastructure.zookeeper.cache.HierarchicalCache;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
+import java.util.Optional;
 
-public class SubscriptionAssignmentRegistry {
-
-    private static final int SUBSCRIPTION_LEVEL = 0;
-
-    private static final int ASSIGNMENT_LEVEL = 1;
-
-    private final Set<SubscriptionAssignment> assignments = Collections.newSetFromMap(new ConcurrentHashMap<>());
-
-    private final String consumerNodeId;
+public class SubscriptionAssignmentRegistry implements SubscriptionAssignmentAware {
 
     private final CuratorFramework curator;
 
-    private final HierarchicalCache cache;
-
-    private final SubscriptionsCache subscriptionsCache;
-
     private final SubscriptionAssignmentPathSerializer pathSerializer;
 
-    public SubscriptionAssignmentRegistry(String consumerNodeId,
-                                          CuratorFramework curator,
+    private final SubscriptionAssignmentCache subscriptionAssignmentCache;
+
+    public SubscriptionAssignmentRegistry(CuratorFramework curator,
                                           String path,
                                           SubscriptionsCache subscriptionsCache,
                                           SubscriptionAssignmentPathSerializer pathSerializer) {
-        this.consumerNodeId = consumerNodeId;
         this.curator = curator;
-        this.subscriptionsCache = subscriptionsCache;
         this.pathSerializer = pathSerializer;
-        this.cache = new HierarchicalCache(
-                curator, Executors.newSingleThreadScheduledExecutor(), path, 2, Collections.emptyList()
-        );
-
-        cache.registerCallback(ASSIGNMENT_LEVEL, (e) -> {
-            SubscriptionAssignment assignment = pathSerializer.deserialize(e.getData().getPath());
-            switch (e.getType()) {
-                case CHILD_ADDED:
-                    assignments.add(assignment);
-                    break;
-                case CHILD_REMOVED:
-                    assignments.remove(assignment);
-                    removeSubscriptionEntryIfEmpty(assignment.getSubscriptionName());
-                    break;
-            }
-        });
+        this.subscriptionAssignmentCache =
+                new SubscriptionAssignmentCache(curator, path, subscriptionsCache, pathSerializer);
     }
 
     public void start() throws Exception {
-        cache.start();
+        subscriptionAssignmentCache.registerAssignementCallback(this);
+        subscriptionAssignmentCache.start();
     }
 
     public void stop() throws Exception {
-        cache.stop();
+        subscriptionAssignmentCache.stop();
+    }
+
+    @Override
+    public void onSubscriptionAssigned(Subscription subscription) {}
+
+    @Override
+    public void onAssignmentRemoved(SubscriptionName subscriptionName) {
+        removeSubscriptionEntryIfEmpty(subscriptionName);
+    }
+
+    @Override
+    public Optional<String> watchedConsumerId() {
+        return Optional.empty();
     }
 
     public void registerAssignementCallback(SubscriptionAssignmentAware callback) {
-        cache.registerCallback(ASSIGNMENT_LEVEL, (e) -> {
-            SubscriptionAssignment assignment = pathSerializer.deserialize(e.getData().getPath());
-            if (consumerNodeId.equals(assignment.getConsumerNodeId())) {
-                switch (e.getType()) {
-                    case CHILD_ADDED:
-                        callback.onSubscriptionAssigned(subscriptionsCache.getSubscription(assignment.getSubscriptionName()));
-                        break;
-                    case CHILD_REMOVED:
-                        callback.onAssignmentRemoved(assignment.getSubscriptionName());
-                        break;
-                }
-            }
-        });
+        subscriptionAssignmentCache.registerAssignementCallback(callback);
     }
 
     public boolean isAssignedTo(String nodeId, SubscriptionName subscription) {
-        return assignments.stream().anyMatch(a -> a.getSubscriptionName().equals(subscription) && a.getConsumerNodeId().equals(nodeId));
+        return subscriptionAssignmentCache.isAssignedTo(nodeId, subscription);
     }
 
     public SubscriptionAssignmentView createSnapshot() {
-        Map<SubscriptionName, Set<SubscriptionAssignment>> snapshot = new HashMap<>();
-        for (SubscriptionAssignment assignment : assignments) {
-            snapshot.compute(assignment.getSubscriptionName(), (k, v) -> {
-                v = (v == null ? new HashSet<>() : v);
-                v.add(assignment);
-                return v;
-            });
-        }
-        return new SubscriptionAssignmentView(snapshot);
+        return subscriptionAssignmentCache.createSnapshot();
     }
 
     private void removeSubscriptionEntryIfEmpty(SubscriptionName subscriptionName) {

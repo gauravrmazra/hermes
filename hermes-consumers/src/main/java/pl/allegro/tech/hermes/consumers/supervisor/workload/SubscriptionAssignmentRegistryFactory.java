@@ -2,7 +2,6 @@ package pl.allegro.tech.hermes.consumers.supervisor.workload;
 
 import org.apache.curator.framework.CuratorFramework;
 import org.glassfish.hk2.api.Factory;
-import org.glassfish.hk2.api.IterableProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import pl.allegro.tech.hermes.common.config.ConfigFactory;
@@ -14,7 +13,6 @@ import pl.allegro.tech.hermes.infrastructure.zookeeper.ZookeeperPaths;
 import javax.inject.Inject;
 import javax.inject.Named;
 
-import static pl.allegro.tech.hermes.common.config.Configs.CONSUMER_WORKLOAD_NODE_ID;
 import static pl.allegro.tech.hermes.common.config.Configs.KAFKA_CLUSTER_NAME;
 
 public class SubscriptionAssignmentRegistryFactory implements Factory<SubscriptionAssignmentRegistry> {
@@ -41,12 +39,12 @@ public class SubscriptionAssignmentRegistryFactory implements Factory<Subscripti
         ZookeeperPaths paths = new ZookeeperPaths(configFactory.getStringProperty(Configs.ZOOKEEPER_ROOT));
         String cluster = configFactory.getStringProperty(KAFKA_CLUSTER_NAME);
 
+        String consumersRuntimePath = paths.consumersRuntimePath(cluster);
         SubscriptionAssignmentRegistry registry = new SubscriptionAssignmentRegistry(
-                configFactory.getStringProperty(CONSUMER_WORKLOAD_NODE_ID),
                 curatorClient,
-                paths.consumersRuntimePath(cluster),
+                consumersRuntimePath,
                 cache,
-                new SubscriptionAssignmentPathSerializer(paths.consumersRuntimePath(cluster))
+                new SubscriptionAssignmentPathSerializer(consumersRuntimePath)
         );
 
         return registry;

@@ -16,6 +16,7 @@ import pl.allegro.tech.hermes.consumers.supervisor.workload.WorkTracker;
 import pl.allegro.tech.hermes.consumers.supervisor.workload.SubscriptionAssignmentRegistry;
 import pl.allegro.tech.hermes.domain.notifications.InternalNotificationsBus;
 
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -140,5 +141,10 @@ public class MirroringSupervisorController implements SupervisorController {
     @Override
     public void restartConsumer(SubscriptionName subscription) throws Exception {
         supervisor.restartConsumer(subscription);
+    }
+
+    @Override
+    public Optional<String> watchedConsumerId() {
+        return Optional.of(consumerNodeId);
     }
 }
