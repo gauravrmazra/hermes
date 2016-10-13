@@ -18,5 +18,6 @@ public class Gauges {
 
             THREADS = "threads",
             INFLIGHT_REQUESTS = "inflight-requests",
-            OUTPUT_RATE = "output-rate." + GROUP + "." + TOPIC + "." + SUBSCRIPTION;
+            OUTPUT_RATE = "output-rate." + GROUP + "." + TOPIC + "." + SUBSCRIPTION,
+            MAX_RATE_CALCULATION_DURATION = "consumers-rate.calculation.duration";
 }
