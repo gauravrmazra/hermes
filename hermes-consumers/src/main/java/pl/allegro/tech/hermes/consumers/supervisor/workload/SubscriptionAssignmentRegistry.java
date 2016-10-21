@@ -71,8 +71,8 @@ public class SubscriptionAssignmentRegistry implements SubscriptionAssignmentAwa
     }
 
     public void dropAssignment(SubscriptionAssignment assignment) {
-        askCuratorPolitely(() -> curator.delete().guaranteed()
-                .forPath(pathSerializer.serialize(assignment.getSubscriptionName(), assignment.getConsumerNodeId())));
+        askCuratorPolitely(() -> curator.delete().guaranteed().forPath(
+                pathSerializer.serialize(assignment.getSubscriptionName(), assignment.getConsumerNodeId())));
     }
 
     public void addPersistentAssignment(SubscriptionAssignment assignment) {
@@ -84,8 +84,8 @@ public class SubscriptionAssignmentRegistry implements SubscriptionAssignmentAwa
     }
 
     private void addAssignment(SubscriptionAssignment assignment, CreateMode createMode) {
-        askCuratorPolitely(() -> curator.create().creatingParentsIfNeeded().withMode(createMode)
-                .forPath(pathSerializer.serialize(assignment.getSubscriptionName(), assignment.getConsumerNodeId())));
+        askCuratorPolitely(() -> curator.create().creatingParentsIfNeeded().withMode(createMode).forPath(
+                pathSerializer.serialize(assignment.getSubscriptionName(), assignment.getConsumerNodeId())));
     }
 
     interface CuratorTask {

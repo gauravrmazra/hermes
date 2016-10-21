@@ -42,8 +42,10 @@ public class SerialConsumerRateLimiter implements ConsumerRateLimiter {
 
     @Override
     public void initialize() {
+        outputRateCalculator.start();
         adjustConsumerRate();
-        hermesMetrics.registerOutputRateGauge(subscription.getTopicName(), subscription.getName(), rateLimiter::getRate);
+        hermesMetrics.registerOutputRateGauge(
+                subscription.getTopicName(), subscription.getName(), rateLimiter::getRate);
         rateLimitSupervisor.register(this);
     }
 
@@ -51,6 +53,7 @@ public class SerialConsumerRateLimiter implements ConsumerRateLimiter {
     public void shutdown() {
         hermesMetrics.unregisterOutputRateGauge(subscription.getTopicName(), subscription.getName());
         rateLimitSupervisor.unregister(this);
+        outputRateCalculator.shutdown();
     }
 
     @Override

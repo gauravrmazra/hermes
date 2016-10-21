@@ -56,7 +56,6 @@ public class ConsumerFactory {
                            MessageBatchFactory byteBufferMessageBatchFactory,
                            MessageContentWrapper messageContentWrapper,
                            MessageBatchSenderFactory batchSenderFactory,
-                           OffsetQueue offsetQueue,
                            ConsumerAuthorizationHandler consumerAuthorizationHandler,
                            Clock clock) {
 

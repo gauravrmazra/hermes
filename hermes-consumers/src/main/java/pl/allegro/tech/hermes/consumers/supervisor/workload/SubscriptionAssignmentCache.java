@@ -73,7 +73,8 @@ public class SubscriptionAssignmentCache {
 
     public boolean isAssignedTo(String nodeId, SubscriptionName subscription) {
         return assignments.stream()
-                .anyMatch(a -> a.getSubscriptionName().equals(subscription) && a.getConsumerNodeId().equals(nodeId));
+                .anyMatch(a -> a.getSubscriptionName().equals(subscription)
+                        && a.getConsumerNodeId().equals(nodeId));
     }
 
     public SubscriptionAssignmentView createSnapshot() {
