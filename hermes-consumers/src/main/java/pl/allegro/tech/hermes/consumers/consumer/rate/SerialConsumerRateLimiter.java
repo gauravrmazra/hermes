@@ -81,6 +81,7 @@ public class SerialConsumerRateLimiter implements ConsumerRateLimiter {
     @Override
     public void updateSubscription(Subscription newSubscription) {
         this.subscription = newSubscription;
+        outputRateCalculator.updateSubscription(newSubscription);
     }
 
     @Override
