@@ -4,7 +4,6 @@ import org.apache.avro.Schema
 import org.glassfish.hk2.api.ServiceLocator
 import pl.allegro.tech.hermes.api.ContentType
 import pl.allegro.tech.hermes.api.Topic
-import pl.allegro.tech.hermes.common.config.ConfigFactory
 import pl.allegro.tech.hermes.domain.group.GroupRepository
 import pl.allegro.tech.hermes.domain.topic.TopicRepository
 import pl.allegro.tech.hermes.schema.CompiledSchema
@@ -47,7 +46,7 @@ class TopicSchemaLoadingStartupHookTest extends Specification {
             listTopics("g2") >> [avroTopic3]
         }
         def schemaRepository = new SchemaRepository(schemaVersionsRepositoryForAvroTopics(), compiledSchemaRepository)
-        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, new ConfigFactory())
+        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, 2, 2)
 
         when:
         hook.accept(serviceLocator)
@@ -67,21 +66,20 @@ class TopicSchemaLoadingStartupHookTest extends Specification {
             listTopics("g2") >> [avroTopic3]
         }
         def schemaRepository = new SchemaRepository(schemaVersionsRepositoryForAvroTopics(), compiledSchemaRepository)
-        def retryCount = 2
-        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, retryCount)
+        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, 2, 2)
 
         when:
         hook.accept(serviceLocator)
 
         then:
-        1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> new RuntimeException()
+        1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> { throw new RuntimeException("an error") }
         1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> schema
 
         0 * compiledSchemaRepository.getSchema(jsonTopic1, version) >> schema
         1 * compiledSchemaRepository.getSchema(avroTopic2, version) >> schema
 
-        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> new RuntimeException()
-        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> new RuntimeException()
+        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> { throw new RuntimeException("an error") }
+        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> { throw new RuntimeException("an error") }
         1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> schema
     }
 
@@ -98,8 +96,7 @@ class TopicSchemaLoadingStartupHookTest extends Specification {
                         : schemaVersionsRepositoryForTopicsWithoutSchema.versions(topic, online) }
         ] as SchemaVersionsRepository
         def schemaRepository = new SchemaRepository(schemaVersionsRepository, compiledSchemaRepository)
-        def retryCount = 2
-        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, retryCount)
+        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, 2, 2)
 
         when:
         hook.accept(serviceLocator)
@@ -109,6 +106,24 @@ class TopicSchemaLoadingStartupHookTest extends Specification {
         0 * compiledSchemaRepository.getSchema(avroTopic3, version) >> schema
 
         1 * schemaVersionsRepositoryForTopicsWithoutSchema.versions(avroTopic3, _) >> []
+    }
+
+    def "should not throw exception when no topics exist"() {
+        TopicRepository topicRepository = Mock() {
+            listTopics("g1") >> []
+            listTopics("g2") >> []
+        }
+        given:
+        CompiledSchemaRepository<Schema> compiledSchemaRepository = Mock()
+        SchemaVersionsRepository schemaVersionsRepository = Mock()
+        def schemaRepository = new SchemaRepository(schemaVersionsRepository, compiledSchemaRepository)
+        def hook = new TopicSchemaLoadingStartupHook(groupRepository, topicRepository, schemaRepository, 2, 2)
+
+        when:
+        hook.accept(serviceLocator)
+
+        then:
+        noExceptionThrown()
     }
 
     private SchemaVersionsRepository schemaVersionsRepositoryForAvroTopics() {

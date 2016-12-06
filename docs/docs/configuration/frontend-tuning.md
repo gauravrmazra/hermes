@@ -66,10 +66,12 @@ To get rid of this issue and reduce event processing latency, all the required d
 just before it's healthcheck goes green.
 Note, enabling startup data loading will make frontend boot a little longer.
 
-Option                                                 | Description                                          | Default value
------------------------------------------------------- | ---------------------------------------------------- | -------------
-frontend.startup.topic.metadata.loading.enabled        | should the startup topic metadata loading be enabled | false
-frontend.startup.topic.metadata.loading.retry.interval | retry interval between retry loops                   | 1s
-frontend.startup.topic.metadata.loading.retry.count    | number of retries between topic metadata fetch loops | 5
-frontend.startup.topic.schema.loading.enabled          | should the startup topic schema loading be enabled   | false
-frontend.startup.topic.schema.loading.retry.count      | number of retries between topic schema fetch loops   | 5
+Option                                                   | Description                                             | Default value
+-------------------------------------------------------- | ------------------------------------------------------- | -------------
+frontend.startup.topic.metadata.loading.enabled          | should the startup topic metadata loading be enabled    | false
+frontend.startup.topic.metadata.loading.retry.interval   | retry interval between retry loops                      | 1s
+frontend.startup.topic.metadata.loading.retry.count      | number of retries between topic metadata fetch loops    | 5
+frontend.startup.topic.metadata.loading.thread.pool.size | number of worker threads loading metadata concurrently  | 16
+frontend.startup.topic.schema.loading.enabled            | should the startup topic schema loading be enabled      | false
+frontend.startup.topic.schema.loading.retry.count        | number of retries between topic schema fetch loops      | 5
+frontend.startup.topic.schema.loading.thread.pool.size   | number of worker threads loading schemas concurrently   | 16

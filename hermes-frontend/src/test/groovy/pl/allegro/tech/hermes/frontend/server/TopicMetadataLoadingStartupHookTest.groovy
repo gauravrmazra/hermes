@@ -3,7 +3,6 @@ package pl.allegro.tech.hermes.frontend.server
 import com.codahale.metrics.MetricRegistry
 import org.glassfish.hk2.api.ServiceLocator
 import pl.allegro.tech.hermes.api.ContentType
-import pl.allegro.tech.hermes.common.config.ConfigFactory
 import pl.allegro.tech.hermes.common.kafka.KafkaTopic
 import pl.allegro.tech.hermes.common.kafka.KafkaTopicName
 import pl.allegro.tech.hermes.common.kafka.KafkaTopics
@@ -57,7 +56,7 @@ class TopicMetadataLoadingStartupHookTest extends Specification {
     def "should load topic metadata"() {
         given:
         BrokerMessageProducer producer = Mock()
-        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, new ConfigFactory())
+        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L, 2)
 
         when:
         hook.accept(serviceLocator)
@@ -71,7 +70,7 @@ class TopicMetadataLoadingStartupHookTest extends Specification {
     def "should retry loading topic metadata"() {
         given:
         BrokerMessageProducer producer = Mock()
-        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L)
+        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L, 4)
 
         when:
         hook.accept(serviceLocator)
@@ -89,7 +88,7 @@ class TopicMetadataLoadingStartupHookTest extends Specification {
     def "should leave retry loop when reached max retries and failed to load metadata"() {
         given:
         BrokerMessageProducer producer = Mock()
-        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L)
+        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L, 4)
 
         when:
         hook.accept(serviceLocator)
@@ -98,6 +97,22 @@ class TopicMetadataLoadingStartupHookTest extends Specification {
         3 * producer.isTopicAvailable(cachedTopics.get("g1.topicA").get()) >> false
         1 * producer.isTopicAvailable(cachedTopics.get("g1.topicB").get()) >> true
         1 * producer.isTopicAvailable(cachedTopics.get("g2.topicC").get()) >> true
+    }
+
+    def "should not throw exception when no topics exist"() {
+        given:
+        BrokerMessageProducer producer = Mock()
+        TopicRepository topicRepository = Mock() {
+            listTopicNames("g1") >> []
+            listTopicNames("g2") >> []
+        }
+        def hook = new TopicMetadataLoadingStartupHook(producer, topicsCache, groupRepository, topicRepository, 2, 10L, 4)
+
+        when:
+        hook.accept(serviceLocator)
+
+        then:
+        noExceptionThrown()
     }
 
     Optional<CachedTopic> getCachedTopic(String name) {
