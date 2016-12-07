@@ -73,13 +73,14 @@ class TopicSchemaLoadingStartupHookTest extends Specification {
 
         then:
         1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> { throw new RuntimeException("an error") }
+        1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> { throw new RuntimeException("an error") }
         1 * compiledSchemaRepository.getSchema(avroTopic1, version) >> schema
 
         0 * compiledSchemaRepository.getSchema(jsonTopic1, version) >> schema
+
+        1 * compiledSchemaRepository.getSchema(avroTopic2, version) >> { throw new RuntimeException("an error") }
         1 * compiledSchemaRepository.getSchema(avroTopic2, version) >> schema
 
-        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> { throw new RuntimeException("an error") }
-        1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> { throw new RuntimeException("an error") }
         1 * compiledSchemaRepository.getSchema(avroTopic3, version) >> schema
     }
 
