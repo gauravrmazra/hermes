@@ -25,8 +25,8 @@ public class WebTargetGraphiteClient implements GraphiteClient {
     public WebTargetGraphiteClient(WebTarget webTarget) {
         this.webTarget = webTarget
                 .path("render")
-                .queryParam("from", "-1minutes")
-                .queryParam("until", "now")
+                .queryParam("from", "-5minutes")
+                .queryParam("until", "-2minutes")
                 .queryParam("format", "json");
     }
 

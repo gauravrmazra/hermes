@@ -58,7 +58,7 @@ class WebTargetGraphiteClientTest extends Specification {
     }
     
     private void mockGraphite(String targetParams, String jsonResponse) {
-        WireMock.stubFor(WireMock.get(WireMock.urlEqualTo(String.format("/render?from=-1minutes&until=now&format=json&%s", targetParams)))
+        WireMock.stubFor(WireMock.get(WireMock.urlEqualTo(String.format("/render?from=-5minutes&until=-2minutes&format=json&%s", targetParams)))
                 .willReturn(WireMock.aResponse()
                 .withStatus(200)
                 .withHeader("Content-Type", MediaType.APPLICATION_JSON)
