@@ -48,22 +48,22 @@ class TopicMetadataLoader implements AutoCloseable {
     }
 
     CompletableFuture<MetadataLoadingResult> loadTopicMetadata(TopicName topic) {
-        return Failsafe.with(retryPolicy).with(scheduler).future(() -> fetchTopicMetadata(topic));
+        return Failsafe.with(retryPolicy).with(scheduler).future(() -> completedFuture(fetchTopicMetadata(topic)));
     }
 
-    private CompletableFuture<MetadataLoadingResult> fetchTopicMetadata(TopicName topic) {
+    private MetadataLoadingResult fetchTopicMetadata(TopicName topic) {
         Optional<CachedTopic> cachedTopic = topicsCache.getTopic(topic.qualifiedName());
         if (cachedTopic.isPresent()) {
             if (brokerMessageProducer.isTopicAvailable(cachedTopic.get())) {
                 logger.info("Topic {} metadata available", topic.qualifiedName());
-                return completedFuture(MetadataLoadingResult.success(topic));
+                return MetadataLoadingResult.success(topic);
             } else {
                 logger.warn("Topic {} metadata not available", topic.qualifiedName());
             }
         } else {
             logger.warn("Could not load topic {} metadata, topic not found in cache", topic.qualifiedName());
         }
-        return completedFuture(MetadataLoadingResult.failure(topic));
+        return MetadataLoadingResult.failure(topic);
     }
 
     @Override

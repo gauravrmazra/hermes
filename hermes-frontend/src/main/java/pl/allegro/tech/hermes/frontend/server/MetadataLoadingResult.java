@@ -2,8 +2,6 @@ package pl.allegro.tech.hermes.frontend.server;
 
 import pl.allegro.tech.hermes.api.TopicName;
 
-import java.util.Objects;
-
 final class MetadataLoadingResult {
 
     enum Type { SUCCESS, FAILURE }
@@ -35,22 +33,5 @@ final class MetadataLoadingResult {
 
     boolean isFailure() {
         return Type.FAILURE == type;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        MetadataLoadingResult that = (MetadataLoadingResult) o;
-        return type == that.type && Objects.equals(topicName, that.topicName);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(type, topicName);
     }
 }

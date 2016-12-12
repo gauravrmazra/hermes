@@ -14,18 +14,17 @@ import pl.allegro.tech.hermes.frontend.server.SchemaLoadingResult.Type;
 import pl.allegro.tech.hermes.schema.SchemaRepository;
 
 import javax.inject.Inject;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static pl.allegro.tech.hermes.common.config.Configs.FRONTEND_STARTUP_TOPIC_SCHEMA_LOADING_RETRY_COUNT;
 import static pl.allegro.tech.hermes.common.config.Configs.FRONTEND_STARTUP_TOPIC_SCHEMA_LOADING_THREAD_POOL_SIZE;
+import static pl.allegro.tech.hermes.frontend.server.CompletableFuturesHelper.allComplete;
 import static pl.allegro.tech.hermes.frontend.server.SchemaLoadingResult.Type.FAILURE;
 import static pl.allegro.tech.hermes.frontend.server.SchemaLoadingResult.Type.NOT_FOUND;
 import static pl.allegro.tech.hermes.frontend.server.SchemaLoadingResult.Type.SUCCESS;
@@ -73,17 +72,7 @@ public class TopicSchemaLoadingStartupHook implements ServiceAwareHook {
         long start = System.currentTimeMillis();
         logger.info("Loading topic schemas");
         List<Topic> topics = getAvroTopics();
-        List<SchemaLoadingResult> allResults = Collections.emptyList();
-
-        try (TopicSchemaLoader loader = new TopicSchemaLoader(schemaRepository, retryCount, threadPoolSize)) {
-            List<CompletableFuture<SchemaLoadingResult>> allFutures = new ArrayList<>();
-            for (Topic topic : topics) {
-                allFutures.add(loader.loadTopicSchema(topic));
-            }
-            allResults = whenAllComplete(allFutures).join();
-        } catch (Exception e) {
-            logger.error("An error occurred while loading schema topics", e);
-        }
+        List<SchemaLoadingResult> allResults = loadSchemasForTopics(topics);
         logResultInfo(allResults);
         logger.info("Done loading topic schemas in {}ms", System.currentTimeMillis() - start);
     }
@@ -96,9 +85,13 @@ public class TopicSchemaLoadingStartupHook implements ServiceAwareHook {
                 .collect(toList());
     }
 
-    private CompletableFuture<List<SchemaLoadingResult>> whenAllComplete(List<CompletableFuture<SchemaLoadingResult>> futures) {
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[futures.size()]))
-                .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(toList()));
+    private List<SchemaLoadingResult> loadSchemasForTopics(List<Topic> topics) {
+        try (TopicSchemaLoader loader = new TopicSchemaLoader(schemaRepository, retryCount, threadPoolSize)) {
+            return allComplete(topics.stream().map(loader::loadTopicSchema).collect(toList())).join();
+        } catch (Exception e) {
+            logger.error("An error occurred while loading schema topics", e);
+            return Collections.emptyList();
+        }
     }
 
     private void logResultInfo(List<SchemaLoadingResult> allResults) {

@@ -2,8 +2,6 @@ package pl.allegro.tech.hermes.frontend.server;
 
 import pl.allegro.tech.hermes.api.Topic;
 
-import java.util.Objects;
-
 final class SchemaLoadingResult {
 
     enum Type {
@@ -39,32 +37,7 @@ final class SchemaLoadingResult {
         return topic;
     }
 
-    boolean isSuccess() {
-        return Type.SUCCESS == type;
-    }
-
     boolean isFailure() {
         return Type.FAILURE == type;
-    }
-
-    boolean isNotFound() {
-        return Type.NOT_FOUND == type;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        SchemaLoadingResult that = (SchemaLoadingResult) o;
-        return type == that.type && Objects.equals(topic, that.topic);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(type, topic);
     }
 }

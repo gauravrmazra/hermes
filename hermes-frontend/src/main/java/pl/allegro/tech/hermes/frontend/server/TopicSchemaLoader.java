@@ -39,21 +39,21 @@ class TopicSchemaLoader implements AutoCloseable {
     }
 
     CompletableFuture<SchemaLoadingResult> loadTopicSchema(Topic topic) {
-        return Failsafe.with(retryPolicy).with(scheduler).future(() -> loadLatestSchema(topic));
+        return Failsafe.with(retryPolicy).with(scheduler).future(() -> completedFuture(loadLatestSchema(topic)));
     }
 
-    private CompletableFuture<SchemaLoadingResult> loadLatestSchema(Topic topic) {
+    private SchemaLoadingResult loadLatestSchema(Topic topic) {
         try {
             schemaRepository.getLatestAvroSchema(topic);
             logger.info("Successfully loaded schema for topic {}", topic.getQualifiedName());
-            return completedFuture(SchemaLoadingResult.success(topic));
+            return SchemaLoadingResult.success(topic);
         } catch (SchemaNotFoundException e) {
             logger.warn("Could not load schema for topic {}. {}", topic.getQualifiedName(), e.getMessage());
-            return completedFuture(SchemaLoadingResult.notFound(topic));
+            return SchemaLoadingResult.notFound(topic);
         } catch (CouldNotLoadSchemaException e) {
             logger.error("An error occurred while loading schema for topic {}", topic.getQualifiedName());
         }
-        return completedFuture(SchemaLoadingResult.failure(topic));
+        return SchemaLoadingResult.failure(topic);
     }
 
     @Override

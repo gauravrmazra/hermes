@@ -14,16 +14,15 @@ import pl.allegro.tech.hermes.frontend.cache.topic.TopicsCache;
 import pl.allegro.tech.hermes.frontend.producer.BrokerMessageProducer;
 
 import javax.inject.Inject;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
 import static pl.allegro.tech.hermes.common.config.Configs.FRONTEND_STARTUP_TOPIC_METADATA_LOADING_THREAD_POOL_SIZE;
+import static pl.allegro.tech.hermes.frontend.server.CompletableFuturesHelper.allComplete;
 import static pl.allegro.tech.hermes.frontend.server.MetadataLoadingResult.Type.FAILURE;
 import static pl.allegro.tech.hermes.frontend.server.MetadataLoadingResult.Type.SUCCESS;
 
@@ -80,32 +79,26 @@ public class TopicMetadataLoadingStartupHook implements ServiceAwareHook {
     public void accept(ServiceLocator serviceLocator) {
         long start = System.currentTimeMillis();
         logger.info("Loading topics metadata");
-
         List<TopicName> topics = getTopics();
-        List<MetadataLoadingResult> allResults = Collections.emptyList();
-        try (TopicMetadataLoader loader = new TopicMetadataLoader(topicsCache, brokerMessageProducer,
-                retryCount, retryInterval, threadPoolSize)) {
-            List<CompletableFuture<MetadataLoadingResult>> allFutures = new ArrayList<>();
-            for (TopicName topic : topics) {
-                allFutures.add(loader.loadTopicMetadata(topic));
-            }
-            allResults = whenAllComplete(allFutures).join();
-        } catch (Exception e) {
-            logger.error("An error occurred while loading topic metadata", e);
-        }
+        List<MetadataLoadingResult> allResults = loadMetadataForTopics(topics);
         logResultInfo(allResults);
         logger.info("Done loading topics metadata in {}ms", System.currentTimeMillis() - start);
+    }
+
+    private List<MetadataLoadingResult> loadMetadataForTopics(List<TopicName> topics) {
+        try (TopicMetadataLoader loader = new TopicMetadataLoader(topicsCache, brokerMessageProducer,
+                retryCount, retryInterval, threadPoolSize)) {
+            return allComplete(topics.stream().map(loader::loadTopicMetadata).collect(toList())).join();
+        } catch (Exception e) {
+            logger.error("An error occurred while loading topic metadata", e);
+            return Collections.emptyList();
+        }
     }
 
     private List<TopicName> getTopics() {
         return groupRepository.listGroupNames().stream()
                 .flatMap(group -> topicRepository.listTopicNames(group).stream().map(topic -> new TopicName(group, topic)))
                 .collect(toList());
-    }
-
-    private CompletableFuture<List<MetadataLoadingResult>> whenAllComplete(List<CompletableFuture<MetadataLoadingResult>> futures) {
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture<?>[futures.size()]))
-                .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(toList()));
     }
 
     private void logResultInfo(List<MetadataLoadingResult> allResults) {
