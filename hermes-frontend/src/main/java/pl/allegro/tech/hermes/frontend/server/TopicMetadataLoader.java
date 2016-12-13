@@ -5,12 +5,9 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import pl.allegro.tech.hermes.api.TopicName;
-import pl.allegro.tech.hermes.frontend.cache.topic.TopicsCache;
 import pl.allegro.tech.hermes.frontend.metric.CachedTopic;
 import pl.allegro.tech.hermes.frontend.producer.BrokerMessageProducer;
 
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,20 +20,16 @@ class TopicMetadataLoader implements AutoCloseable {
 
     private static final Logger logger = LoggerFactory.getLogger(TopicMetadataLoader.class);
 
-    private final TopicsCache topicsCache;
-
     private final BrokerMessageProducer brokerMessageProducer;
 
     private final ScheduledExecutorService scheduler;
 
     private final RetryPolicy retryPolicy;
 
-    TopicMetadataLoader(TopicsCache topicsCache,
-                               BrokerMessageProducer brokerMessageProducer,
+    TopicMetadataLoader(BrokerMessageProducer brokerMessageProducer,
                                int retryCount,
                                long retryInterval,
                                int threadPoolSize) {
-        this.topicsCache = topicsCache;
 
         this.brokerMessageProducer = brokerMessageProducer;
         ThreadFactory threadFactory = new ThreadFactoryBuilder().setNameFormat("topic-metadata-loader-%d").build();
@@ -47,23 +40,17 @@ class TopicMetadataLoader implements AutoCloseable {
                 .retryIf(MetadataLoadingResult::isFailure);
     }
 
-    CompletableFuture<MetadataLoadingResult> loadTopicMetadata(TopicName topic) {
+    CompletableFuture<MetadataLoadingResult> loadTopicMetadata(CachedTopic topic) {
         return Failsafe.with(retryPolicy).with(scheduler).future(() -> completedFuture(fetchTopicMetadata(topic)));
     }
 
-    private MetadataLoadingResult fetchTopicMetadata(TopicName topic) {
-        Optional<CachedTopic> cachedTopic = topicsCache.getTopic(topic.qualifiedName());
-        if (cachedTopic.isPresent()) {
-            if (brokerMessageProducer.isTopicAvailable(cachedTopic.get())) {
-                logger.info("Topic {} metadata available", topic.qualifiedName());
-                return MetadataLoadingResult.success(topic);
-            } else {
-                logger.warn("Topic {} metadata not available", topic.qualifiedName());
-            }
-        } else {
-            logger.warn("Could not load topic {} metadata, topic not found in cache", topic.qualifiedName());
+    private MetadataLoadingResult fetchTopicMetadata(CachedTopic topic) {
+        if (brokerMessageProducer.isTopicAvailable(topic)) {
+            logger.info("Topic {} metadata available", topic.getQualifiedName());
+            return MetadataLoadingResult.success(topic.getTopicName());
         }
-        return MetadataLoadingResult.failure(topic);
+        logger.warn("Topic {} metadata not available", topic.getQualifiedName());
+        return MetadataLoadingResult.failure(topic.getTopicName());
     }
 
     @Override

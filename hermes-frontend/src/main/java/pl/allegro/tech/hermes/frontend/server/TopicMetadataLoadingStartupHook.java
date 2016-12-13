@@ -8,9 +8,8 @@ import pl.allegro.tech.hermes.common.config.ConfigFactory;
 import pl.allegro.tech.hermes.common.config.Configs;
 import pl.allegro.tech.hermes.common.hook.Hook;
 import pl.allegro.tech.hermes.common.hook.ServiceAwareHook;
-import pl.allegro.tech.hermes.domain.group.GroupRepository;
-import pl.allegro.tech.hermes.domain.topic.TopicRepository;
 import pl.allegro.tech.hermes.frontend.cache.topic.TopicsCache;
+import pl.allegro.tech.hermes.frontend.metric.CachedTopic;
 import pl.allegro.tech.hermes.frontend.producer.BrokerMessageProducer;
 
 import javax.inject.Inject;
@@ -34,10 +33,6 @@ public class TopicMetadataLoadingStartupHook implements ServiceAwareHook {
 
     private final TopicsCache topicsCache;
 
-    private final GroupRepository groupRepository;
-
-    private final TopicRepository topicRepository;
-
     private final int retryCount;
 
     private final long retryInterval;
@@ -47,29 +42,21 @@ public class TopicMetadataLoadingStartupHook implements ServiceAwareHook {
     @Inject
     public TopicMetadataLoadingStartupHook(BrokerMessageProducer brokerMessageProducer,
                                            TopicsCache topicsCache,
-                                           GroupRepository groupRepository,
-                                           TopicRepository topicRepository,
                                            ConfigFactory config) {
         this(brokerMessageProducer,
                 topicsCache,
-                groupRepository,
-                topicRepository,
                 config.getIntProperty(Configs.FRONTEND_STARTUP_TOPIC_METADATA_LOADING_RETRY_COUNT),
                 config.getLongProperty(Configs.FRONTEND_STARTUP_TOPIC_METADATA_LOADING_RETRY_INTERVAL),
                 config.getIntProperty(FRONTEND_STARTUP_TOPIC_METADATA_LOADING_THREAD_POOL_SIZE));
     }
 
-    public TopicMetadataLoadingStartupHook(BrokerMessageProducer brokerMessageProducer,
+    TopicMetadataLoadingStartupHook(BrokerMessageProducer brokerMessageProducer,
                                            TopicsCache topicsCache,
-                                           GroupRepository groupRepository,
-                                           TopicRepository topicRepository,
                                            int retryCount,
                                            long retryInterval,
                                            int threadPoolSize) {
         this.brokerMessageProducer = brokerMessageProducer;
         this.topicsCache = topicsCache;
-        this.groupRepository = groupRepository;
-        this.topicRepository = topicRepository;
         this.retryCount = retryCount;
         this.retryInterval = retryInterval;
         this.threadPoolSize = threadPoolSize;
@@ -79,26 +66,19 @@ public class TopicMetadataLoadingStartupHook implements ServiceAwareHook {
     public void accept(ServiceLocator serviceLocator) {
         long start = System.currentTimeMillis();
         logger.info("Loading topics metadata");
-        List<TopicName> topics = getTopics();
+        List<CachedTopic> topics = topicsCache.getTopics();
         List<MetadataLoadingResult> allResults = loadMetadataForTopics(topics);
         logResultInfo(allResults);
         logger.info("Done loading topics metadata in {}ms", System.currentTimeMillis() - start);
     }
 
-    private List<MetadataLoadingResult> loadMetadataForTopics(List<TopicName> topics) {
-        try (TopicMetadataLoader loader = new TopicMetadataLoader(topicsCache, brokerMessageProducer,
-                retryCount, retryInterval, threadPoolSize)) {
+    private List<MetadataLoadingResult> loadMetadataForTopics(List<CachedTopic> topics) {
+        try (TopicMetadataLoader loader = new TopicMetadataLoader(brokerMessageProducer, retryCount, retryInterval, threadPoolSize)) {
             return allComplete(topics.stream().map(loader::loadTopicMetadata).collect(toList())).join();
         } catch (Exception e) {
             logger.error("An error occurred while loading topic metadata", e);
             return Collections.emptyList();
         }
-    }
-
-    private List<TopicName> getTopics() {
-        return groupRepository.listGroupNames().stream()
-                .flatMap(group -> topicRepository.listTopicNames(group).stream().map(topic -> new TopicName(group, topic)))
-                .collect(toList());
     }
 
     private void logResultInfo(List<MetadataLoadingResult> allResults) {

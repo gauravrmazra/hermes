@@ -8,8 +8,8 @@ import pl.allegro.tech.hermes.api.Topic;
 import pl.allegro.tech.hermes.common.config.ConfigFactory;
 import pl.allegro.tech.hermes.common.hook.Hook;
 import pl.allegro.tech.hermes.common.hook.ServiceAwareHook;
-import pl.allegro.tech.hermes.domain.group.GroupRepository;
-import pl.allegro.tech.hermes.domain.topic.TopicRepository;
+import pl.allegro.tech.hermes.frontend.cache.topic.TopicsCache;
+import pl.allegro.tech.hermes.frontend.metric.CachedTopic;
 import pl.allegro.tech.hermes.frontend.server.SchemaLoadingResult.Type;
 import pl.allegro.tech.hermes.schema.SchemaRepository;
 
@@ -33,9 +33,7 @@ public class TopicSchemaLoadingStartupHook implements ServiceAwareHook {
 
     private static final Logger logger = LoggerFactory.getLogger(TopicSchemaLoadingStartupHook.class);
 
-    private final GroupRepository groupRepository;
-
-    private final TopicRepository topicRepository;
+    private final TopicsCache topicsCache;
 
     private final SchemaRepository schemaRepository;
 
@@ -44,23 +42,20 @@ public class TopicSchemaLoadingStartupHook implements ServiceAwareHook {
     private final int threadPoolSize;
 
     @Inject
-    public TopicSchemaLoadingStartupHook(GroupRepository groupRepository,
-                                         TopicRepository topicRepository,
+    public TopicSchemaLoadingStartupHook(TopicsCache topicsCache,
                                          SchemaRepository schemaRepository,
                                          ConfigFactory config) {
 
-        this(groupRepository, topicRepository, schemaRepository,
+        this(topicsCache, schemaRepository,
                 config.getIntProperty(FRONTEND_STARTUP_TOPIC_SCHEMA_LOADING_RETRY_COUNT),
                 config.getIntProperty(FRONTEND_STARTUP_TOPIC_SCHEMA_LOADING_THREAD_POOL_SIZE));
     }
 
-    public TopicSchemaLoadingStartupHook(GroupRepository groupRepository,
-                                         TopicRepository topicRepository,
+    TopicSchemaLoadingStartupHook(TopicsCache topicsCache,
                                          SchemaRepository schemaRepository,
                                          int retryCount,
                                          int threadPoolSize) {
-        this.groupRepository = groupRepository;
-        this.topicRepository = topicRepository;
+        this.topicsCache = topicsCache;
         this.schemaRepository = schemaRepository;
         this.retryCount = retryCount;
         this.threadPoolSize = threadPoolSize;
@@ -78,9 +73,8 @@ public class TopicSchemaLoadingStartupHook implements ServiceAwareHook {
     }
 
     private List<Topic> getAvroTopics() {
-        return groupRepository.listGroupNames().stream()
-                .map(topicRepository::listTopics)
-                .flatMap(List::stream)
+        return topicsCache.getTopics().stream()
+                .map(CachedTopic::getTopic)
                 .filter(topic -> ContentType.AVRO == topic.getContentType())
                 .collect(toList());
     }
